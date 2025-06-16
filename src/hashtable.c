@@ -137,6 +137,45 @@ static void hashtable_do_clear(hashtable_t *hashtable) {
     }
 }
 
+int hashtable_shrink(hashtable_t *hashtable) {
+    list_t *list, *next;
+    pair_t *pair;
+    size_t i, index, new_size, new_order;
+    struct hashtable_bucket *new_buckets;
+
+    new_order = hashtable->order;
+    while(hashsize(new_order-1) >= hashtable->size && new_order > 0)
+        new_order--;
+
+    if(new_order == hashtable->order)
+        return 0;
+
+    new_size = hashsize(new_order);
+
+    new_buckets = jsonp_malloc(new_size * sizeof(bucket_t));
+    if (!new_buckets)
+        return -1;
+
+    jsonp_free(hashtable->buckets);
+    hashtable->buckets = new_buckets;
+    hashtable->order = new_order;
+
+    for (i = 0; i < hashsize(hashtable->order); i++)
+        hashtable->buckets[i].first = hashtable->buckets[i].last = &hashtable->list;
+
+    list = hashtable->list.next;
+    list_init(&hashtable->list);
+
+    for (; list != &hashtable->list; list = next) {
+        next = list->next;
+        pair = list_to_pair(list);
+        index = pair->hash % new_size;
+        insert_to_bucket(hashtable, &hashtable->buckets[index], &pair->list);
+    }
+
+    return 0;
+}
+
 static int hashtable_do_rehash(hashtable_t *hashtable) {
     list_t *list, *next;
     pair_t *pair;
