@@ -788,6 +788,18 @@ allowed in object keys.
 
    .. versionadded:: 2.15.2
 
+.. function::  int json_shrink(json_t *json)
+
+   Shrinks internal memory of any json type.
+
+   .. versionadded:: 2.15.2
+
+.. function::  int json_shrink_recursive(json_t *json)
+
+   Shrinks internal memory of any json type recursively.
+
+   .. versionadded:: 2.15.2
+
 .. function:: void json_object_foreach(object, key, value)
 
    Iterate over every key-value pair of ``object``, running the block
