@@ -356,6 +356,19 @@ int json_equal(const json_t *value1, const json_t *value2);
 json_t *json_copy(json_t *value) JANSSON_ATTRS((warn_unused_result));
 json_t *json_deep_copy(const json_t *value) JANSSON_ATTRS((warn_unused_result));
 
+/* shrinking */
+
+static JSON_INLINE int json_shrink(json_t *json) {
+    if (json_is_array(json)) {
+        return json_array_shrink(json);
+    } else if (json_is_object(json)) {
+        return json_object_shrink(json);
+    }
+    return 0;
+}
+
+int json_shrink_recursive(json_t *json);
+
 /* decoding */
 
 #define JSON_REJECT_DUPLICATES  0x1

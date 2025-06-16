@@ -1142,3 +1142,51 @@ json_t *do_deep_copy(const json_t *json, hashtable_t *parents) {
             return NULL;
     }
 }
+
+/*** shrinking  ***/
+
+int json_shrink_recursive(json_t *json)
+{
+    if (!json)
+        return -1;
+
+    switch (json_typeof(json)) {
+        case JSON_OBJECT: {
+            void *iter;
+            int res = json_object_shrink(json);
+
+            if (res < 0)
+                return res;
+
+            iter = json_object_iter(json);
+            while (iter) {
+                if (json_shrink_recursive(json_object_iter_value(iter)) < 0)
+                    return -1;
+                iter = json_object_iter_next(json, iter);
+            }
+            return 0;
+        }
+        case JSON_ARRAY: {
+            size_t i;
+            int res = json_array_shrink(json);
+
+            if (res < 0)
+                return res;
+
+            for (i = 0; i < json_array_size(json); i++) {
+                if (json_shrink_recursive(json_array_get(json, i)) < 0)
+                    return -1;
+            }
+            return 0;
+        }
+        case JSON_STRING:
+        case JSON_INTEGER:
+        case JSON_REAL:
+        case JSON_TRUE:
+        case JSON_FALSE:
+        case JSON_NULL:
+            return 0;
+        default:
+            return -1;
+    }
+}
