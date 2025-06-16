@@ -426,6 +426,19 @@ out:
     return result;
 }
 
+int json_object_shrink(json_t *object)
+{
+    json_object_t *obj;
+
+    if (!json_is_object(object))
+        return -1;
+
+    obj = json_to_object(object);
+    hashtable_shrink(&obj->hashtable);
+
+    return 0;
+}
+
 /*** array ***/
 
 json_t *json_array(void) {
