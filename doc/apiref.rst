@@ -782,6 +782,12 @@ allowed in object keys.
    recursively merged with the corresponding values in *object* if they are also
    objects, instead of overwriting them. Returns 0 on success or -1 on error.
 
+.. function::  int json_object_shrink(json_t *json)
+
+   Shrinks internal memory to current size.
+
+   .. versionadded:: 2.15.2
+
 .. function:: void json_object_foreach(object, key, value)
 
    Iterate over every key-value pair of ``object``, running the block

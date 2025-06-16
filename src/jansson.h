@@ -286,6 +286,8 @@ static JSON_INLINE int json_object_update_missing_new(json_t *object, json_t *ot
     return ret;
 }
 
+int json_object_shrink(json_t *object);
+
 size_t json_array_size(const json_t *array);
 json_t *json_array_get(const json_t *array, size_t index)
     JANSSON_ATTRS((warn_unused_result));
