@@ -114,6 +114,15 @@ int hashtable_del(hashtable_t *hashtable, const char *key, size_t key_len);
 void hashtable_clear(hashtable_t *hashtable);
 
 /**
+ * hashtable_shrink - Shrink hashtable
+ *
+ * @hashtable: The hashtable object
+ * 
+ * Shrinks the hashtable to the minimum size that can hold all
+ */
+int hashtable_shrink(hashtable_t *hashtable);
+
+/**
  * hashtable_iter - Iterate over hashtable
  *
  * @hashtable: The hashtable object
