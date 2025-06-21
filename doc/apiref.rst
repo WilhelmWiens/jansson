@@ -594,6 +594,10 @@ A JSON array is an ordered collection of other JSON values.
    Appends all elements in *other_array* to the end of *array*.
    Returns 0 on success and -1 on error.
 
+.. function::  int json_array_shrink(json_t *json)
+
+   Shrinks internal memory to current size.
+
 .. function:: void json_array_foreach(array, index, value)
 
    Iterate over every element of ``array``, running the block

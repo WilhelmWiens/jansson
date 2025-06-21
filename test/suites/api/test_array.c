@@ -108,6 +108,13 @@ static void test_misc(void) {
     if (!json_array_append_new(array, NULL))
         fail("able to append_new NULL value");
 
+    i = json_array_size(array);
+    if (json_array_shrink(array))
+        fail("unable to shrink array");
+
+    if (i != json_array_size(array))
+        fail("error during shrink");
+
     json_decref(five);
     json_decref(seven);
     json_decref(array);

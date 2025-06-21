@@ -295,6 +295,7 @@ int json_array_insert_new(json_t *array, size_t index, json_t *value);
 int json_array_remove(json_t *array, size_t index);
 int json_array_clear(json_t *array);
 int json_array_extend(json_t *array, json_t *other);
+int json_array_shrink(json_t *array);
 
 static JSON_INLINE int json_array_set(json_t *array, size_t ind, json_t *value) {
     return json_array_set_new(array, ind, json_incref(value));

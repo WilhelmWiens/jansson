@@ -237,7 +237,7 @@ int json_object_update_missing(json_t *object, json_t *other) {
     return 0;
 }
 
-int do_object_update_recursive(json_t *object, json_t *other, hashtable_t *parents) {
+static int do_object_update_recursive(json_t *object, json_t *other, hashtable_t *parents) {
     const char *key;
     size_t key_len;
     json_t *value;
@@ -505,6 +505,29 @@ static void array_move(json_array_t *array, size_t dest, size_t src, size_t coun
 static void array_copy(json_t **dest, size_t dpos, json_t **src, size_t spos,
                        size_t count) {
     memcpy(&dest[dpos], &src[spos], count * sizeof(json_t *));
+}
+
+int json_array_shrink(json_t *json) {
+    json_array_t *array;
+    size_t new_size;
+    json_t **old_table, **new_table;
+
+    if (!json_is_array(json)) {
+        return -1;
+    }
+    array = json_to_array(json);
+
+    new_size = array->entries;
+    old_table = array->table;
+
+    new_table = jsonp_realloc(old_table, array->entries * sizeof(json_t *), new_size * sizeof(json_t *));
+    if (!new_table)
+        return -1;
+
+    array->size = new_size;
+    array->table = new_table;
+
+    return 0;
 }
 
 static json_t **json_array_grow(json_array_t *array, size_t amount) {
