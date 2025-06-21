@@ -17,6 +17,7 @@ suites/api/test_memory_funcs_realloc
 suites/api/test_number
 suites/api/test_object
 suites/api/test_pack
+suites/api/test_shrink
 suites/api/test_simple
 suites/api/test_sprintf
 suites/api/test_unpack

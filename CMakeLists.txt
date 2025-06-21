@@ -503,6 +503,7 @@ if (NOT JANSSON_WITHOUT_TESTS)
          test_number
          test_object
          test_pack
+         test_shrink
          test_simple
          test_sprintf
          test_unpack)
