@@ -391,7 +391,14 @@ json_t *json_load_callback(json_load_callback_t callback, void *data, size_t fla
 
 typedef int (*json_dump_callback_t)(const char *buffer, size_t size, void *data);
 
-char *json_dumps(const json_t *json, size_t flags) JANSSON_ATTRS((warn_unused_result));
+char *json_dumpsn(const json_t *json, size_t flags, size_t *size)
+JANSSON_ATTRS((warn_unused_result));
+
+static JSON_INLINE char *json_dumps(const json_t *json, size_t flags)
+JANSSON_ATTRS((warn_unused_result)) {
+    return json_dumpsn(json, flags, NULL);
+}
+
 size_t json_dumpb(const json_t *json, char *buffer, size_t size, size_t flags);
 int json_dumpf(const json_t *json, FILE *output, size_t flags);
 int json_dumpfd(const json_t *json, int output, size_t flags);
