@@ -422,7 +422,7 @@ static int do_dump(const json_t *json, size_t flags, int depth, hashtable_t *par
     }
 }
 
-char *json_dumps(const json_t *json, size_t flags) {
+char *json_dumpsn(const json_t *json, size_t flags, size_t *size) {
     strbuffer_t strbuff;
     char *result;
 
@@ -440,6 +440,8 @@ char *json_dumps(const json_t *json, size_t flags) {
             result = new_result;
         }
     }
+    if (size)
+        *size = strbuff.length;
 
     strbuffer_close(&strbuff);
     return result;
