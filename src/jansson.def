@@ -24,6 +24,12 @@ EXPORTS
     json_number_value
     json_array
     json_array_size
+    json_biginteger
+    json_biginteger_set
+    json_biginteger_value
+    json_bigreal
+    json_bigreal_set
+    json_bigreal_value
     json_array_get
     json_array_set_new
     json_array_append_new
@@ -80,6 +86,10 @@ EXPORTS
     json_set_alloc_funcs2
     json_get_alloc_funcs
     json_get_alloc_funcs2
+    json_set_biginteger_funcs
+    json_set_bigreal_funcs
+    json_set_overwrite_func
+    json_set_realloc_func
     jansson_version_str
     jansson_version_cmp
 

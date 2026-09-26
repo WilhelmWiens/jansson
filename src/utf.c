@@ -5,8 +5,15 @@
  * it under the terms of the MIT license. See LICENSE for details.
  */
 
+#ifdef HAVE_CONFIG_H
+#include <jansson_private_config.h>
+#endif
+
 #include "utf.h"
 #include <string.h>
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 
 int utf8_encode(int32_t codepoint, char *buffer, size_t *size) {
     if (codepoint < 0)
