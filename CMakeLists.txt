@@ -373,6 +373,15 @@ add_library( jansson::jansson ALIAS jansson )
 if (JANSSON_EXAMPLES)
 	add_executable(simple_parse "${CMAKE_CURRENT_SOURCE_DIR}/examples/simple_parse.c")
 	target_link_libraries(simple_parse jansson)
+
+	add_executable(walk_dump_minimal "${CMAKE_CURRENT_SOURCE_DIR}/examples/walk_dump_minimal.c")
+	target_link_libraries(walk_dump_minimal jansson)
+
+	add_executable(walk_dump "${CMAKE_CURRENT_SOURCE_DIR}/examples/walk_dump.c")
+	target_link_libraries(walk_dump jansson)
+
+	add_executable(walk_flatten "${CMAKE_CURRENT_SOURCE_DIR}/examples/walk_flatten.c")
+	target_link_libraries(walk_flatten jansson)
 endif()
 
 # For building Documentation (uses Sphinx)
@@ -508,7 +517,8 @@ if (NOT JANSSON_WITHOUT_TESTS)
          test_pack
          test_simple
          test_sprintf
-         test_unpack)
+         test_unpack
+         test_walk)
 
    # Doing arithmetic on void pointers is not allowed by Microsofts compiler
    # such as secure_malloc and secure_free is doing, so exclude it for now.
