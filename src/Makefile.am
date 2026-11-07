@@ -21,7 +21,8 @@ libjansson_la_SOURCES = \
 	utf.c \
 	utf.h \
 	value.c \
-	version.c
+	version.c \
+	walk.c
 
 if DTOA_ENABLED
 libjansson_la_SOURCES += dtoa.c

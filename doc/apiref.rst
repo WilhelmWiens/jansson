@@ -2100,3 +2100,152 @@ And usage::
 
         json_decref(obj);
     }
+
+
+.. _walk:
+
+Walking the json tree
+=====================
+
+The walk API can be used to traverse a JSON value and invoke a callback
+for each relevant node. This is useful for custom pretty-printers,
+validators, tree analyzers, or any other operation that needs to know the
+current position in the structure. :func:`json_walk` traverses containers
+depth first and invokes the callback according to the supplied flags.
+
+.. c:macro:: JSON_WALK_CONTAINER_PRE
+
+   Invoke the callback before descending into the children of an object or
+   array. Returning ``JSON_WALK_BREAK`` here skips that container's children.
+
+.. c:macro:: JSON_WALK_CONTAINER_POST
+
+   Invoke the callback again after all children of an object or array have
+   been processed.
+
+.. c:macro:: JSON_WALK_LEAFS
+
+   Invoke the callback for scalar values, i.e. values that are neither arrays
+   nor objects.
+
+.. c:macro:: JSON_WALK_STATUS_CONTAINER_PRE
+
+   Bit flag passed in the callback's *status* argument during the pre-order
+   callback for a container.
+
+.. c:macro:: JSON_WALK_STATUS_CONTAINER_POST
+
+   Bit flag passed in the callback's *status* argument during the post-order
+   callback for a container.
+
+.. c:macro:: JSON_WALK_STATUS_LEAF
+
+   Bit flag passed in the callback's *status* argument when the callback is
+   invoked for a scalar value.
+
+.. c:macro:: JSON_WALK_STATUS_FIRST_CHILD
+
+   Bit flag passed in the callback's *status* argument when the current value
+   is the first child of its parent container.
+
+.. c:macro:: JSON_WALK_STATUS_LAST_CHILD
+
+   Bit flag passed in the callback's *status* argument when the current value
+   is the last child of its parent container.
+
+.. c:enum:: json_walk_result_t
+
+   Result codes returned by a walk callback:
+
+   ``JSON_WALK_CONTINUE``
+      Continue the walk normally.
+
+   ``JSON_WALK_BREAK``
+      Stop processing the remaining children of the current parent container.
+      When returned by a container's pre-order callback, skip that container's
+      children; its post-order callback is still invoked when enabled. The walk
+      continues outside that container. A break at the root completes the walk
+      normally.
+
+   ``JSON_WALK_STOP``
+      Stop the walk immediately and return ``JSON_WALK_STOP`` from
+      :func:`json_walk`.
+
+   ``JSON_WALK_ERROR``
+      Abort the walk and return ``JSON_WALK_ERROR`` (``-1``) from
+      :func:`json_walk`. Invalid callback results and allocation failures also
+      produce this result.
+
+   .. versionadded:: 2.16
+
+.. c:type:: json_walk_callback_t
+
+   A typedef for a function called by :func:`json_walk`::
+
+      typedef json_walk_result_t (*json_walk_callback_t)(json_t *json, json_t *path_item, void *data, size_t status);
+
+   *json* is the value currently being visited. It is borrowed and must not be
+   decremented by the callback. *path_item* identifies the value's position:
+   it is the object key as a JSON string or the array index as a JSON integer.
+   It is *NULL* for the root value. Both pointers are borrowed and are valid
+   only for the duration of the callback; the callback must not modify them.
+   *data* is the user-supplied pointer passed to :func:`json_walk`.
+
+   *status* is a ``size_t`` bitmask. It contains one of
+   ``JSON_WALK_STATUS_CONTAINER_PRE``, ``JSON_WALK_STATUS_CONTAINER_POST``, or
+   ``JSON_WALK_STATUS_LEAF`` to identify the callback phase. It may also
+   contain ``JSON_WALK_STATUS_FIRST_CHILD`` or
+   ``JSON_WALK_STATUS_LAST_CHILD`` when the value is the first or last child
+   of its parent container. The root value has neither child-position flag.
+
+   .. versionadded:: 2.16
+
+.. function:: json_walk_result_t json_walk(json_t *json, json_walk_callback_t callback, void *data, size_t flags)
+
+   .. refcounting:: borrow
+
+   Traverse *json*, invoking *callback* for the nodes selected by *flags* and
+   passing *data* through to each invocation. The flags are a bitwise OR of
+   ``JSON_WALK_CONTAINER_PRE``, ``JSON_WALK_CONTAINER_POST``, and
+   ``JSON_WALK_LEAFS``. Unrecognized flag bits are invalid. If no flags are
+   set, the walk succeeds without invoking the callback.
+
+   Returns ``JSON_WALK_CONTINUE`` when traversal completes,
+   ``JSON_WALK_STOP`` when the callback stops the walk, or
+   ``JSON_WALK_ERROR`` if *json* or *callback* is *NULL*, the flags are
+   invalid, the tree exceeds ``JSON_PARSER_MAX_DEPTH``, the callback returns
+   an invalid result, or an allocation fails.
+
+   .. versionadded:: 2.16
+
+Example::
+
+   #include <jansson.h>
+   #include <stdio.h>
+
+   static json_walk_result_t print_callback(json_t *value, json_t *path_item,
+                                  void *data, size_t status) {
+      (void)data;
+      if (path_item != NULL && json_is_string(path_item))
+         printf("key: %s\n", json_string_value(path_item));
+      else if (path_item != NULL && json_is_integer(path_item))
+         printf("array index: %" JSON_INTEGER_FORMAT "\n",
+               json_integer_value(path_item));
+      if (status & JSON_WALK_STATUS_LEAF)
+         printf("scalar type: %d\n", json_typeof(value));
+        return JSON_WALK_CONTINUE;
+    }
+
+   int main(void) {
+      json_t *root;
+      json_walk_result_t result;
+
+      root = json_loads("{\"a\": [1, 2], \"b\": true}", 0, NULL);
+      if (root == NULL)
+         return 1;
+
+      result = json_walk(root, print_callback, NULL,
+                     JSON_WALK_CONTAINER_PRE | JSON_WALK_LEAFS);
+      json_decref(root);
+      return result == JSON_WALK_ERROR ? 1 : 0;
+   }
