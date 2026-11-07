@@ -20,7 +20,8 @@ check_PROGRAMS = \
 	test_simple \
 	test_sprintf \
 	test_unpack \
-	test_version
+	test_version \
+	test_walk
 
 test_array_SOURCES = test_array.c util.h
 test_chaos_SOURCES = test_chaos.c util.h

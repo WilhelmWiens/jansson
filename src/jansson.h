@@ -418,6 +418,45 @@ void json_get_alloc_funcs2(json_malloc_t *malloc_fn, json_realloc_t *realloc_fn,
 const char *jansson_version_str(void);
 int jansson_version_cmp(int major, int minor, int micro);
 
+/* walk*/
+
+/* Walk flags */
+#define JSON_WALK_CONTAINER_PRE  0x01
+#define JSON_WALK_CONTAINER_POST 0x02
+#define JSON_WALK_LEAFS          0x04
+
+#define JSON_WALK_STATUS_CONTAINER_PRE  0x01
+#define JSON_WALK_STATUS_CONTAINER_POST 0x02
+#define JSON_WALK_STATUS_LEAF           0x04
+#define JSON_WALK_STATUS_FIRST_CHILD    0x08
+#define JSON_WALK_STATUS_LAST_CHILD     0x10
+
+typedef enum {
+    JSON_WALK_CONTINUE = 0,
+    JSON_WALK_BREAK = 1,
+    JSON_WALK_STOP = 2,
+    JSON_WALK_ERROR = -1
+} json_walk_result_t;
+
+struct walk_context;
+
+typedef json_walk_result_t (*json_walk_callback_t)(json_t *json,
+                                                   struct walk_context *ctx);
+
+struct walk_context {
+    /* User provided */
+    size_t flags; /* Walk flags */
+    void *data;
+    json_walk_callback_t callback;
+
+    /* Handled by json_walk */
+    json_t *path_array;
+    size_t status; /* Status flags */
+};
+
+json_walk_result_t json_walk_ctx(struct walk_context *ctx, json_t *json);
+json_walk_result_t json_walk(json_t *json, json_walk_callback_t callback, void *data);
+
 #ifdef __cplusplus
 }
 #endif

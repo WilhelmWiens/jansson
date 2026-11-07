@@ -2100,3 +2100,181 @@ And usage::
 
         json_decref(obj);
     }
+
+
+.. _walk:
+
+Walking the json tree
+=====================
+
+The walk API can be used to traverse a JSON value and invoke a callback
+for each relevant node. This is useful for custom pretty-printers,
+validators, tree analyzers, or any other operation that needs to know the
+current position in the structure.
+
+The callback receives a pointer to :c:struct:`walk_context` and the current
+JSON value. The traversal can be customized with the flags in the context,
+and the callback must return one of the values in :c:enum:`json_walk_result_t`.
+
+.. c:macro:: JSON_WALK_CONTAINER_PRE
+
+   Invoke the callback before descending into the children of an object or
+   array.
+
+.. c:macro:: JSON_WALK_CONTAINER_POST
+
+   Invoke the callback again after all children of an object or array have
+   been processed.
+
+.. c:macro:: JSON_WALK_LEAFS
+
+   Invoke the callback for scalar values, i.e. values that are neither arrays
+   nor objects.
+
+.. c:macro:: JSON_WALK_STATUS_CONTAINER_PRE
+
+   Bit flag stored in the ``status`` field of the ``walk_context``
+   structure. It is set while the callback is being invoked in the pre-order
+   phase of a container.
+
+.. c:macro:: JSON_WALK_STATUS_CONTAINER_POST
+
+   Bit flag stored in the ``status`` field of the ``walk_context``
+   structure. It is set while the callback is being invoked in the post-order
+   phase of a container.
+
+.. c:macro:: JSON_WALK_STATUS_LEAF
+
+   Bit flag stored in the ``status`` field of the ``walk_context``
+   structure. It is set while the callback is being invoked for a scalar value.
+
+.. c:macro:: JSON_WALK_STATUS_FIRST_CHILD
+
+   Bit flag stored in the ``status`` field of the ``walk_context``
+   structure. It is set while the current JSON value is the first child of its
+   parent container.
+
+.. c:macro:: JSON_WALK_STATUS_LAST_CHILD
+
+   Bit flag stored in the ``status`` field of the ``walk_context``
+   structure. It is set while the current JSON value is the last child of its
+   parent container. The root value has neither child-position flag.
+
+.. c:enum:: json_walk_result_t
+
+   Result codes returned by a walk callback:
+
+   ``JSON_WALK_CONTINUE``
+      Continue the walk normally.
+
+   ``JSON_WALK_BREAK``
+      Skip the children of the current container, but continue walking the
+      rest of the tree. If ``JSON_WALK_CONTAINER_POST`` is enabled, the
+      container's post-order callback is still invoked.
+
+   ``JSON_WALK_STOP``
+      Stop the walk immediately and return the value from
+      :func:`json_walk_ctx` or :func:`json_walk`.
+
+   ``JSON_WALK_ERROR``
+      Abort the walk and return ``-1`` from :func:`json_walk_ctx` or
+      :func:`json_walk`.
+
+   .. versionadded:: 2.16
+
+.. type:: walk_context
+
+   This structure holds the traversal state passed to a walk callback.
+
+   ``flags``
+      Type: ``size_t``. Flags controlling which callbacks are invoked. The
+      flags are the macros listed above.
+
+   ``data``
+      Type: ``void *``. User-supplied data pointer passed through to the
+      callback.
+
+   ``callback``
+      Type: ``json_walk_callback_t``. The callback function invoked while
+      traversing the tree.
+
+   ``status``
+      Type: ``size_t``. Bitmask describing the current callback event. Use
+      ``JSON_WALK_STATUS_CONTAINER_PRE`` and
+      ``JSON_WALK_STATUS_CONTAINER_POST`` to identify container callbacks, and
+      ``JSON_WALK_STATUS_LEAF`` to identify a scalar callback.
+      ``JSON_WALK_STATUS_FIRST_CHILD`` and
+      ``JSON_WALK_STATUS_LAST_CHILD`` indicate whether the current node is the
+      first or last child of its parent container.
+
+   ``path_array``
+      Type: ``json_t *``. A temporary array containing the current path to the
+      node being visited. Object keys are stored as JSON strings and array
+      indices as JSON integers. The path array is owned by the walk and is not
+      intended to be modified by the callback.
+
+   .. versionadded:: 2.16
+
+.. type:: json_walk_callback_t
+
+   A typedef for a function that's called by :func:`json_walk_ctx()` and
+   :func:`json_walk()`::
+
+      typedef json_walk_result_t (*json_walk_callback_t)(json_t *json, struct walk_context *ctx);
+
+   *json* points to the JSON value currently being visited, and *ctx* points to
+   the current walk context. The event status is available through *ctx->status*.
+
+   .. versionadded:: 2.16
+
+.. function:: int json_walk_ctx(struct walk_context *ctx, json_t *json)
+
+   .. refcounting:: borrow
+
+   Traverse *json* using the callback configured in *ctx*. The callback is
+   invoked according to the flags in *ctx->flags* and can inspect the current
+   path through *ctx->path_array*.
+
+   The walk fails with ``-1`` if *ctx* or *json* is *NULL*, if *ctx->callback*
+   is missing, if *json* exceeds ``JSON_PARSER_MAX_DEPTH``, or if memory
+   allocation for the internal path array fails. It returns
+   ``JSON_WALK_CONTINUE`` when traversal completes, including when a callback
+   returns ``JSON_WALK_BREAK`` to skip a container's children,
+   ``JSON_WALK_STOP`` when the callback stops the walk, or ``JSON_WALK_ERROR``
+   if the callback aborts the walk.
+
+   .. versionadded:: 2.16
+
+.. function:: int json_walk(json_t *json, json_walk_callback_t callback, void *data)
+
+   .. refcounting:: borrow
+
+   Convenience wrapper around :func:`json_walk_ctx()`. It initializes a
+   :c:struct:`walk_context` with ``JSON_WALK_CONTAINER_PRE | JSON_WALK_LEAFS``
+   as the default flags, sets *callback* and *data*, and then traverses *json*.
+   This is equivalent to manually preparing a context and calling
+   :func:`json_walk_ctx()`.
+
+   .. versionadded:: 2.16
+
+Example::
+
+   static json_walk_result_t dump_callback(json_t *value, struct walk_context *ctx) {
+        size_t depth = json_array_size(ctx->path_array);
+
+      if (ctx->status & JSON_WALK_STATUS_CONTAINER_POST)
+            return JSON_WALK_CONTINUE;
+
+        printf("depth=%zu type=%s\n", depth, json_typeof(value));
+        return JSON_WALK_CONTINUE;
+    }
+
+    json_t *root = json_loads("{\"a\": [1, 2], \"b\": true}", 0, NULL);
+    struct walk_context ctx;
+
+    ctx.flags = JSON_WALK_CONTAINER_PRE | JSON_WALK_CONTAINER_POST | JSON_WALK_LEAFS;
+    ctx.callback = dump_callback;
+    ctx.data = NULL;
+
+    json_walk_ctx(&ctx, root);
+    json_decref(root);
