@@ -22,10 +22,10 @@
 
 #define failhdr fprintf(stderr, "%s:%d: ", __FILE__, __LINE__)
 
-#define fail(msg)                                                                        \
+#define fail(format, ...)                                                                \
     do {                                                                                 \
         failhdr;                                                                         \
-        fprintf(stderr, "%s\n", msg);                                                    \
+        fprintf(stderr, format "\n", ##__VA_ARGS__);                                     \
         exit(1);                                                                         \
     } while (0)
 
