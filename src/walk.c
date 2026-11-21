@@ -71,7 +71,6 @@ static json_walk_result_t json_walk_intern(json_t *json, json_t *path_array,
                         return JSON_WALK_ERROR;
 
                     status_flags_child =
-                        JSON_WALK_STATUS_LEAF |
                         ((child_index == 0) ? JSON_WALK_STATUS_FIRST_CHILD : 0) |
                         ((child_index + 1 == child_count) ? JSON_WALK_STATUS_LAST_CHILD
                                                           : 0);
@@ -119,7 +118,6 @@ static json_walk_result_t json_walk_intern(json_t *json, json_t *path_array,
                     }
 
                     status_flags_child =
-                        JSON_WALK_STATUS_LEAF |
                         ((index == 0) ? JSON_WALK_STATUS_FIRST_CHILD : 0) |
                         ((index + 1 == child_count) ? JSON_WALK_STATUS_LAST_CHILD : 0);
                     if (json_array_append_new(path_array, index_json) != 0) {
