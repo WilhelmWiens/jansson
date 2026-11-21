@@ -72,7 +72,6 @@ static json_walk_result_t json_walk_intern(struct walk_context *ctx, json_t *jso
                         return JSON_WALK_ERROR;
 
                     status_child =
-                        JSON_WALK_STATUS_LEAF |
                         ((child_index == 0) ? JSON_WALK_STATUS_FIRST_CHILD : 0) |
                         ((child_index + 1 == child_count) ? JSON_WALK_STATUS_LAST_CHILD
                                                           : 0);
@@ -121,7 +120,6 @@ static json_walk_result_t json_walk_intern(struct walk_context *ctx, json_t *jso
                     }
 
                     status_child =
-                        JSON_WALK_STATUS_LEAF |
                         ((index == 0) ? JSON_WALK_STATUS_FIRST_CHILD : 0) |
                         ((index + 1 == child_count) ? JSON_WALK_STATUS_LAST_CHILD : 0);
                     if (json_array_append_new(ctx->path_array, index_json) != 0) {
