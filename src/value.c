@@ -53,7 +53,7 @@ int jsonp_loop_check(hashtable_t *parents, const json_t *json, char *key, size_t
         *key_len_out = key_len;
 
     if (hashtable_get(parents, key, key_len))
-        return -1;
+        return 1;
 
     return hashtable_set(parents, key, key_len, json_null());
 }

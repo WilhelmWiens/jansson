@@ -229,12 +229,61 @@ static void test_walk_flags(void) {
 
     if (json_walk(root, NULL, NULL, 0) != JSON_WALK_ERROR ||
         json_walk(NULL, trace_callback, &trace, 0) != JSON_WALK_ERROR ||
-        json_walk(root, trace_callback, &trace, 0x08) != JSON_WALK_ERROR)
+        json_walk(root, trace_callback, &trace, 0x10) != JSON_WALK_ERROR)
         fail("json_walk flags: invalid argument check failed");
 
     json_decref(root);
     json_decref(empty_object);
     json_decref(empty_array);
+}
+
+static void test_walk_circular_references(void) {
+    json_t *root = json_object();
+    json_t *array = json_array();
+    json_t *shared = json_object();
+    struct walk_trace trace = {0};
+    json_walk_result_t result;
+    size_t cycle_status = JSON_WALK_STATUS_FIRST_CHILD |
+                          JSON_WALK_STATUS_LAST_CHILD |
+                          JSON_WALK_STATUS_CIRCULAR_REFERENCE;
+
+    if (!root || !array || json_object_set(root, "loop", array) != 0 ||
+        json_array_append(array, root) != 0)
+        fail("json_walk circular references: failed to create object cycle");
+
+    result = json_walk(root, trace_callback, &trace, JSON_WALK_CIRCULAR_REFERENCE);
+    if (result != JSON_WALK_CONTINUE || trace.count != 1 ||
+        trace.events[0].json != root || trace.events[0].path_size != 2 ||
+        trace.events[0].status_flag != cycle_status)
+        fail("json_walk circular references: object cycle event mismatch");
+
+    memset(&trace, 0, sizeof(trace));
+    result = json_walk(root, trace_callback, &trace, JSON_WALK_CONTAINER_PRE);
+    if (result != JSON_WALK_ERROR || trace.count != 2 ||
+        trace.events[0].json != root || trace.events[1].json != array)
+        fail("json_walk circular references: disabled cycle reporting did not error");
+
+    if (json_object_del(root, "loop") != 0 || json_array_remove(array, 0) != 0)
+        fail("json_walk circular references: failed to break object cycle");
+    json_decref(root);
+    json_decref(array);
+
+    if (!shared)
+        fail("json_walk circular references: failed to create shared value");
+    root = json_object();
+    if (!root || json_object_set(root, "a", shared) != 0 ||
+        json_object_set(root, "b", shared) != 0)
+        fail("json_walk circular references: failed to create shared subtree");
+    memset(&trace, 0, sizeof(trace));
+    result = json_walk(root, trace_callback, &trace,
+                       JSON_WALK_CONTAINER_PRE | JSON_WALK_CIRCULAR_REFERENCE);
+    if (result != JSON_WALK_CONTINUE || trace.count != 3 ||
+        (trace.events[0].status_flag & JSON_WALK_STATUS_CIRCULAR_REFERENCE) ||
+        (trace.events[1].status_flag & JSON_WALK_STATUS_CIRCULAR_REFERENCE) ||
+        (trace.events[2].status_flag & JSON_WALK_STATUS_CIRCULAR_REFERENCE))
+        fail("json_walk circular references: shared subtree was reported as a cycle");
+    json_decref(root);
+    json_decref(shared);
 }
 
 static void test_walk_callback_errors(void) {
@@ -455,6 +504,7 @@ static void test_walk_allocation_failures(void) {
 
 static void run_tests() {
     test_walk_flags();
+    test_walk_circular_references();
     test_walk_callback_errors();
     test_walk_callback_breaks();
     test_walk_invalid_callback_result();
