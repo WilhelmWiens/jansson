@@ -421,15 +421,17 @@ int jansson_version_cmp(int major, int minor, int micro);
 /* walk*/
 
 /* Walk flags */
-#define JSON_WALK_CONTAINER_PRE  0x01
-#define JSON_WALK_CONTAINER_POST 0x02
-#define JSON_WALK_LEAFS          0x04
+#define JSON_WALK_CONTAINER_PRE          0x01
+#define JSON_WALK_CONTAINER_POST         0x02
+#define JSON_WALK_LEAFS                  0x04
+#define JSON_WALK_CIRCULAR_REFERENCE     0x08
 
-#define JSON_WALK_STATUS_CONTAINER_PRE  0x01
-#define JSON_WALK_STATUS_CONTAINER_POST 0x02
-#define JSON_WALK_STATUS_LEAF           0x04
-#define JSON_WALK_STATUS_FIRST_CHILD    0x08
-#define JSON_WALK_STATUS_LAST_CHILD     0x10
+#define JSON_WALK_STATUS_CONTAINER_PRE       0x01
+#define JSON_WALK_STATUS_CONTAINER_POST      0x02
+#define JSON_WALK_STATUS_LEAF                0x04
+#define JSON_WALK_STATUS_FIRST_CHILD         0x08
+#define JSON_WALK_STATUS_LAST_CHILD          0x10
+#define JSON_WALK_STATUS_CIRCULAR_REFERENCE 0x20
 
 typedef enum {
     JSON_WALK_CONTINUE = 0,

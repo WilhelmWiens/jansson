@@ -2131,6 +2131,13 @@ and the callback must return one of the values in :c:enum:`json_walk_result_t`.
    Invoke the callback for scalar values, i.e. values that are neither arrays
    nor objects.
 
+.. c:macro:: JSON_WALK_CIRCULAR_REFERENCE
+
+   When a container on the current ancestor path is encountered again, invoke
+   the callback with ``JSON_WALK_STATUS_CIRCULAR_REFERENCE`` and skip descending
+   into that container. Without this option, the walk returns
+   ``JSON_WALK_ERROR`` on a circular reference.
+
 .. c:macro:: JSON_WALK_STATUS_CONTAINER_PRE
 
    Bit flag stored in the ``status`` field of the ``walk_context``
@@ -2159,6 +2166,12 @@ and the callback must return one of the values in :c:enum:`json_walk_result_t`.
    Bit flag stored in the ``status`` field of the ``walk_context``
    structure. It is set while the current JSON value is the last child of its
    parent container. The root value has neither child-position flag.
+
+.. c:macro:: JSON_WALK_STATUS_CIRCULAR_REFERENCE
+
+   Bit flag stored in the ``status`` field for a circular-reference callback.
+   The callback is invoked once for the repeated edge, and the repeated
+   container is not traversed.
 
 .. c:enum:: json_walk_result_t
 
@@ -2203,6 +2216,8 @@ and the callback must return one of the values in :c:enum:`json_walk_result_t`.
       ``JSON_WALK_STATUS_CONTAINER_PRE`` and
       ``JSON_WALK_STATUS_CONTAINER_POST`` to identify container callbacks, and
       ``JSON_WALK_STATUS_LEAF`` to identify a scalar callback.
+      ``JSON_WALK_STATUS_CIRCULAR_REFERENCE`` identifies a circular-reference
+      callback.
       ``JSON_WALK_STATUS_FIRST_CHILD`` and
       ``JSON_WALK_STATUS_LAST_CHILD`` indicate whether the current node is the
       first or last child of its parent container.
@@ -2236,8 +2251,11 @@ and the callback must return one of the values in :c:enum:`json_walk_result_t`.
    path through *ctx->path_array*.
 
    The walk fails with ``-1`` if *ctx* or *json* is *NULL*, if *ctx->callback*
-   is missing, if *json* exceeds ``JSON_PARSER_MAX_DEPTH``, or if memory
-   allocation for the internal path array fails. It returns
+   is missing, if a circular reference is found without
+   ``JSON_WALK_CIRCULAR_REFERENCE``, if *json* exceeds ``JSON_PARSER_MAX_DEPTH``,
+   or if memory allocation for the internal path array fails. With the option
+   enabled, a circular reference invokes the callback with
+   ``JSON_WALK_STATUS_CIRCULAR_REFERENCE`` and is not traversed. It returns
    ``JSON_WALK_CONTINUE`` when traversal completes, including when a callback
    returns ``JSON_WALK_BREAK`` to skip a container's children,
    ``JSON_WALK_STOP`` when the callback stops the walk, or ``JSON_WALK_ERROR``

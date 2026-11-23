@@ -5,23 +5,9 @@
  * it under the terms of the MIT license. See LICENSE for details.
  */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-
 #include "jansson_private.h"
 
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-
-#include "jansson.h"
-#include "strbuffer.h"
-#include "utf.h"
 
 static json_walk_result_t json_walk_call(struct walk_context *ctx, json_t *json,
                                          const size_t status) {
@@ -37,7 +23,41 @@ static json_walk_result_t json_walk_call(struct walk_context *ctx, json_t *json,
 }
 
 static json_walk_result_t json_walk_intern(struct walk_context *ctx, json_t *json,
-                                           const size_t status, size_t depth) {
+                                           const size_t status, size_t depth,
+                                           hashtable_t *parents);
+
+static json_walk_result_t json_walk_enter(struct walk_context *ctx, json_t *json,
+                                          const size_t status, size_t depth,
+                                          hashtable_t *parents) {
+    json_walk_result_t result;
+    char loop_key[LOOP_KEY_LEN];
+    size_t loop_key_len;
+    size_t position_status =
+        status & (JSON_WALK_STATUS_FIRST_CHILD | JSON_WALK_STATUS_LAST_CHILD);
+    int loop_status;
+
+    if (!json_is_object(json) && !json_is_array(json))
+        return json_walk_intern(ctx, json, status, depth, parents);
+
+    loop_status = jsonp_loop_check(parents, json, loop_key, LOOP_KEY_LEN, &loop_key_len);
+    if (loop_status < 0)
+        return JSON_WALK_ERROR;
+    if (loop_status > 0) {
+        if (!(ctx->flags & JSON_WALK_CIRCULAR_REFERENCE))
+            return JSON_WALK_ERROR;
+        result = json_walk_call(ctx, json,
+                                position_status | JSON_WALK_STATUS_CIRCULAR_REFERENCE);
+        return result == JSON_WALK_BREAK ? JSON_WALK_CONTINUE : result;
+    }
+
+    result = json_walk_intern(ctx, json, status, depth, parents);
+    hashtable_del(parents, loop_key, loop_key_len);
+    return result;
+}
+
+static json_walk_result_t json_walk_intern(struct walk_context *ctx, json_t *json,
+                                           const size_t status, size_t depth,
+                                           hashtable_t *parents) {
     json_walk_result_t result;
 
     size_t status_flags =
@@ -79,7 +99,8 @@ static json_walk_result_t json_walk_intern(struct walk_context *ctx, json_t *jso
                     if (json_array_append_new(ctx->path_array, key_json) != 0) {
                         return JSON_WALK_ERROR;
                     }
-                    result = json_walk_intern(ctx, value, status_child, depth + 1);
+                    result = json_walk_enter(ctx, value, status_child, depth + 1,
+                                             parents);
                     json_array_remove(ctx->path_array,
                                       json_array_size(ctx->path_array) - 1);
                     if (result != JSON_WALK_CONTINUE) {
@@ -125,7 +146,8 @@ static json_walk_result_t json_walk_intern(struct walk_context *ctx, json_t *jso
                     if (json_array_append_new(ctx->path_array, index_json) != 0) {
                         return JSON_WALK_ERROR;
                     }
-                    result = json_walk_intern(ctx, value, status_child, depth + 1);
+                    result = json_walk_enter(ctx, value, status_child, depth + 1,
+                                             parents);
                     json_array_remove(ctx->path_array,
                                       json_array_size(ctx->path_array) - 1);
                     if (result != JSON_WALK_CONTINUE) {
@@ -154,19 +176,25 @@ static json_walk_result_t json_walk_intern(struct walk_context *ctx, json_t *jso
 
 json_walk_result_t json_walk_ctx(struct walk_context *ctx, json_t *json) {
     json_walk_result_t result;
+    hashtable_t parents;
 
     if (!json || !ctx || !ctx->callback) {
         return -1;
     }
 
+    if (hashtable_init(&parents) != 0)
+        return -1;
+
     ctx->path_array = json_array();
     if (!ctx->path_array) {
+        hashtable_close(&parents);
         return -1;
     }
 
-    result = json_walk_intern(ctx, json, 0, 0);
+    result = json_walk_enter(ctx, json, 0, 0, &parents);
 
     json_decref(ctx->path_array);
+    hashtable_close(&parents);
 
     return result;
 }
