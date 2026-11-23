@@ -60,7 +60,7 @@ static json_walk_result_t json_walk_intern(struct walk_context *ctx, json_t *jso
     size_t status_flags =
         status & (JSON_WALK_STATUS_FIRST_CHILD | JSON_WALK_STATUS_LAST_CHILD);
 
-    if (parents->size >= JSON_PARSER_MAX_DEPTH)
+    if (parents->size > JSON_PARSER_MAX_DEPTH)
         return JSON_WALK_ERROR;
 
     switch (json_typeof(json)) {
@@ -172,8 +172,11 @@ static json_walk_result_t json_walk_intern(struct walk_context *ctx, json_t *jso
 json_walk_result_t json_walk_ctx(struct walk_context *ctx, json_t *json) {
     json_walk_result_t result;
     hashtable_t parents;
+    const size_t valid_flags =
+        JSON_WALK_CONTAINER_PRE | JSON_WALK_CONTAINER_POST | JSON_WALK_LEAFS |
+        JSON_WALK_CIRCULAR_REFERENCE;
 
-    if (!json || !ctx || !ctx->callback) {
+    if (!json || !ctx || !ctx->callback || (ctx->flags & ~valid_flags)) {
         return -1;
     }
 
@@ -189,6 +192,8 @@ json_walk_result_t json_walk_ctx(struct walk_context *ctx, json_t *json) {
     result = json_walk_enter(ctx, json, 0, &parents);
 
     json_decref(ctx->path_array);
+    ctx->path_array = NULL;
+    ctx->status = 0;
     hashtable_close(&parents);
 
     return result;
