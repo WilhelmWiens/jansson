@@ -2128,6 +2128,13 @@ depth first and invokes the callback according to the supplied flags.
    Invoke the callback for scalar values, i.e. values that are neither arrays
    nor objects.
 
+.. c:macro:: JSON_WALK_CIRCULAR_REFERENCE
+
+   When a container on the current ancestor path is encountered again, invoke
+   the callback with ``JSON_WALK_STATUS_CIRCULAR_REFERENCE`` and skip descending
+   into that container. Without this option, the walk returns
+   ``JSON_WALK_ERROR`` on a circular reference.
+
 .. c:macro:: JSON_WALK_STATUS_CONTAINER_PRE
 
    Bit flag passed in the callback's *status* argument during the pre-order
@@ -2152,6 +2159,12 @@ depth first and invokes the callback according to the supplied flags.
 
    Bit flag passed in the callback's *status* argument when the current value
    is the last child of its parent container.
+
+.. c:macro:: JSON_WALK_STATUS_CIRCULAR_REFERENCE
+
+   Bit flag passed in the callback's *status* argument for a circular-reference
+   event. The callback is invoked once for the repeated edge, and the repeated
+   container is not traversed.
 
 .. c:enum:: json_walk_result_t
 
@@ -2193,8 +2206,9 @@ depth first and invokes the callback according to the supplied flags.
 
    *status* is a ``size_t`` bitmask. It contains one of
    ``JSON_WALK_STATUS_CONTAINER_PRE``, ``JSON_WALK_STATUS_CONTAINER_POST``, or
-   ``JSON_WALK_STATUS_LEAF`` to identify the callback phase. It may also
-   contain ``JSON_WALK_STATUS_FIRST_CHILD`` or
+   ``JSON_WALK_STATUS_LEAF`` to identify the callback phase, or
+   ``JSON_WALK_STATUS_CIRCULAR_REFERENCE`` for a circular-reference event. It
+   may also contain ``JSON_WALK_STATUS_FIRST_CHILD`` or
    ``JSON_WALK_STATUS_LAST_CHILD`` when the value is the first or last child
    of its parent container. The root value has neither child-position flag.
 
@@ -2206,15 +2220,24 @@ depth first and invokes the callback according to the supplied flags.
 
    Traverse *json*, invoking *callback* for the nodes selected by *flags* and
    passing *data* through to each invocation. The flags are a bitwise OR of
-   ``JSON_WALK_CONTAINER_PRE``, ``JSON_WALK_CONTAINER_POST``, and
-   ``JSON_WALK_LEAFS``. Unrecognized flag bits are invalid. If no flags are
-   set, the walk succeeds without invoking the callback.
+   ``JSON_WALK_CONTAINER_PRE``, ``JSON_WALK_CONTAINER_POST``,
+   ``JSON_WALK_LEAFS``, and ``JSON_WALK_CIRCULAR_REFERENCE``. Unrecognized
+   flag bits are invalid. If no flags are set, the walk succeeds without
+   invoking the callback.
+
+   A circular reference is a container already present on the current ancestor
+   path. With ``JSON_WALK_CIRCULAR_REFERENCE`` enabled, the callback is invoked
+   once with ``JSON_WALK_STATUS_CIRCULAR_REFERENCE`` and traversal skips that
+   repeated container. Without the option, a detected circular reference
+   returns ``JSON_WALK_ERROR``. Shared containers reached through separate
+   acyclic paths are still traversed at each path.
 
    Returns ``JSON_WALK_CONTINUE`` when traversal completes,
    ``JSON_WALK_STOP`` when the callback stops the walk, or
    ``JSON_WALK_ERROR`` if *json* or *callback* is *NULL*, the flags are
-   invalid, the tree exceeds ``JSON_PARSER_MAX_DEPTH``, the callback returns
-   an invalid result, or an allocation fails.
+   invalid, a circular reference is detected without the reporting option,
+   the tree exceeds ``JSON_PARSER_MAX_DEPTH``, the callback returns an invalid
+   result, or an allocation fails.
 
    .. versionadded:: 2.16
 

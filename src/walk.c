@@ -5,23 +5,7 @@
  * it under the terms of the MIT license. See LICENSE for details.
  */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-
 #include "jansson_private.h"
-
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-
-#include "jansson.h"
-#include "strbuffer.h"
-#include "utf.h"
 
 static json_walk_result_t walk_callback(json_t *json, json_t *path_item,
                                         json_walk_callback_t callback, void *data,
@@ -41,7 +25,43 @@ static json_walk_result_t walk_callback(json_t *json, json_t *path_item,
 
 static json_walk_result_t walk_node(json_t *json, json_t *path_item,
                                     json_walk_callback_t callback, void *data,
-                                    size_t flags, size_t position_status, size_t depth) {
+                                    size_t flags, size_t position_status, size_t depth,
+                                    hashtable_t *parents);
+
+static json_walk_result_t walk_enter(json_t *json, json_t *path_item,
+                                     json_walk_callback_t callback, void *data,
+                                     size_t flags, size_t position_status, size_t depth,
+                                     hashtable_t *parents) {
+    json_walk_result_t result;
+    char loop_key[LOOP_KEY_LEN];
+    size_t loop_key_len;
+    int loop_status;
+
+    if (!json_is_object(json) && !json_is_array(json))
+        return walk_node(json, path_item, callback, data, flags, position_status, depth,
+                         parents);
+
+    loop_status = jsonp_loop_check(parents, json, loop_key, LOOP_KEY_LEN, &loop_key_len);
+    if (loop_status < 0)
+        return JSON_WALK_ERROR;
+    if (loop_status > 0) {
+        if (!(flags & JSON_WALK_CIRCULAR_REFERENCE))
+            return JSON_WALK_ERROR;
+        result = walk_callback(json, path_item, callback, data,
+                               position_status | JSON_WALK_STATUS_CIRCULAR_REFERENCE);
+        return result == JSON_WALK_BREAK ? JSON_WALK_CONTINUE : result;
+    }
+
+    result = walk_node(json, path_item, callback, data, flags, position_status, depth,
+                       parents);
+    hashtable_del(parents, loop_key, loop_key_len);
+    return result;
+}
+
+static json_walk_result_t walk_node(json_t *json, json_t *path_item,
+                                    json_walk_callback_t callback, void *data,
+                                    size_t flags, size_t position_status, size_t depth,
+                                    hashtable_t *parents) {
     json_walk_result_t result;
     int is_container = json_is_object(json) || json_is_array(json);
     int skip_children = 0;
@@ -87,8 +107,8 @@ static json_walk_result_t walk_node(json_t *json, json_t *path_item,
                 if (index + 1 == count)
                     child_status |= JSON_WALK_STATUS_LAST_CHILD;
 
-                result = walk_node(json_array_get(json, index), item, callback, data,
-                                   flags, child_status, depth + 1);
+                result = walk_enter(json_array_get(json, index), item, callback, data,
+                                    flags, child_status, depth + 1, parents);
                 json_decref(item);
 
                 if (result == JSON_WALK_STOP || result == JSON_WALK_ERROR)
@@ -114,8 +134,8 @@ static json_walk_result_t walk_node(json_t *json, json_t *path_item,
                 if (index + 1 == count)
                     child_status |= JSON_WALK_STATUS_LAST_CHILD;
 
-                result = walk_node(json_object_iter_value(iter), item, callback, data,
-                                   flags, child_status, depth + 1);
+                result = walk_enter(json_object_iter_value(iter), item, callback, data,
+                                    flags, child_status, depth + 1, parents);
                 json_decref(item);
 
                 if (result == JSON_WALK_STOP || result == JSON_WALK_ERROR)
@@ -142,13 +162,19 @@ static json_walk_result_t walk_node(json_t *json, json_t *path_item,
 json_walk_result_t json_walk(json_t *json, json_walk_callback_t callback, void *data,
                              size_t flags) {
     json_walk_result_t result;
-    size_t valid_flags =
-        JSON_WALK_CONTAINER_PRE | JSON_WALK_CONTAINER_POST | JSON_WALK_LEAFS;
+    hashtable_t parents;
+    const size_t valid_flags =
+        JSON_WALK_CONTAINER_PRE | JSON_WALK_CONTAINER_POST | JSON_WALK_LEAFS |
+        JSON_WALK_CIRCULAR_REFERENCE;
 
     if (!json || !callback || (flags & ~valid_flags))
         return JSON_WALK_ERROR;
 
-    result = walk_node(json, NULL, callback, data, flags, 0, 0);
+    if (hashtable_init(&parents) != 0)
+        return JSON_WALK_ERROR;
+
+    result = walk_enter(json, NULL, callback, data, flags, 0, 0, &parents);
+    hashtable_close(&parents);
 
     /* BREAK ends the current container; at the root, traversal is complete. */
     return result == JSON_WALK_BREAK ? JSON_WALK_CONTINUE : result;
