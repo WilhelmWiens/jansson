@@ -23,12 +23,10 @@ static json_walk_result_t json_walk_call(struct walk_context *ctx, json_t *json,
 }
 
 static json_walk_result_t json_walk_intern(struct walk_context *ctx, json_t *json,
-                                           const size_t status, size_t depth,
-                                           hashtable_t *parents);
+                                           const size_t status, hashtable_t *parents);
 
 static json_walk_result_t json_walk_enter(struct walk_context *ctx, json_t *json,
-                                          const size_t status, size_t depth,
-                                          hashtable_t *parents) {
+                                          const size_t status, hashtable_t *parents) {
     json_walk_result_t result;
     char loop_key[LOOP_KEY_LEN];
     size_t loop_key_len;
@@ -37,7 +35,7 @@ static json_walk_result_t json_walk_enter(struct walk_context *ctx, json_t *json
     int loop_status;
 
     if (!json_is_object(json) && !json_is_array(json))
-        return json_walk_intern(ctx, json, status, depth, parents);
+        return json_walk_intern(ctx, json, status, parents);
 
     loop_status = jsonp_loop_check(parents, json, loop_key, LOOP_KEY_LEN, &loop_key_len);
     if (loop_status < 0)
@@ -50,20 +48,19 @@ static json_walk_result_t json_walk_enter(struct walk_context *ctx, json_t *json
         return result == JSON_WALK_BREAK ? JSON_WALK_CONTINUE : result;
     }
 
-    result = json_walk_intern(ctx, json, status, depth, parents);
+    result = json_walk_intern(ctx, json, status, parents);
     hashtable_del(parents, loop_key, loop_key_len);
     return result;
 }
 
 static json_walk_result_t json_walk_intern(struct walk_context *ctx, json_t *json,
-                                           const size_t status, size_t depth,
-                                           hashtable_t *parents) {
+                                        const size_t status, hashtable_t *parents) {
     json_walk_result_t result;
 
     size_t status_flags =
         status & (JSON_WALK_STATUS_FIRST_CHILD | JSON_WALK_STATUS_LAST_CHILD);
 
-    if (depth >= JSON_PARSER_MAX_DEPTH)
+    if (parents->size >= JSON_PARSER_MAX_DEPTH)
         return JSON_WALK_ERROR;
 
     switch (json_typeof(json)) {
@@ -99,8 +96,7 @@ static json_walk_result_t json_walk_intern(struct walk_context *ctx, json_t *jso
                     if (json_array_append_new(ctx->path_array, key_json) != 0) {
                         return JSON_WALK_ERROR;
                     }
-                    result = json_walk_enter(ctx, value, status_child, depth + 1,
-                                             parents);
+                    result = json_walk_enter(ctx, value, status_child, parents);
                     json_array_remove(ctx->path_array,
                                       json_array_size(ctx->path_array) - 1);
                     if (result != JSON_WALK_CONTINUE) {
@@ -146,8 +142,7 @@ static json_walk_result_t json_walk_intern(struct walk_context *ctx, json_t *jso
                     if (json_array_append_new(ctx->path_array, index_json) != 0) {
                         return JSON_WALK_ERROR;
                     }
-                    result = json_walk_enter(ctx, value, status_child, depth + 1,
-                                             parents);
+                    result = json_walk_enter(ctx, value, status_child, parents);
                     json_array_remove(ctx->path_array,
                                       json_array_size(ctx->path_array) - 1);
                     if (result != JSON_WALK_CONTINUE) {
@@ -191,7 +186,7 @@ json_walk_result_t json_walk_ctx(struct walk_context *ctx, json_t *json) {
         return -1;
     }
 
-    result = json_walk_enter(ctx, json, 0, 0, &parents);
+    result = json_walk_enter(ctx, json, 0, &parents);
 
     json_decref(ctx->path_array);
     hashtable_close(&parents);
