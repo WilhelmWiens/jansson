@@ -63,7 +63,7 @@ static json_walk_result_t json_walk_intern(json_t *json, json_t *path_array,
     size_t status_flags =
         status & (JSON_WALK_STATUS_FIRST_CHILD | JSON_WALK_STATUS_LAST_CHILD);
 
-    if (parents->size >= JSON_PARSER_MAX_DEPTH)
+    if (parents->size > JSON_PARSER_MAX_DEPTH)
         return JSON_WALK_ERROR;
 
     switch (json_typeof(json)) {
@@ -98,7 +98,7 @@ static json_walk_result_t json_walk_intern(json_t *json, json_t *path_array,
                     if (json_array_append_new(path_array, key_json) != 0) {
                         return JSON_WALK_ERROR;
                     }
-                    result = json_walk_intern(value, path_array, callback, data, flags,
+                    result = json_walk_enter(value, path_array, callback, data, flags,
                                              status_flags_child, parents);
                     json_array_remove(path_array, json_array_size(path_array) - 1);
                     if (result != JSON_WALK_CONTINUE) {
@@ -143,7 +143,7 @@ static json_walk_result_t json_walk_intern(json_t *json, json_t *path_array,
                     if (json_array_append_new(path_array, index_json) != 0) {
                         return JSON_WALK_ERROR;
                     }
-                    result = json_walk_intern(value, path_array, callback, data, flags,
+                    result = json_walk_enter(value, path_array, callback, data, flags,
                                              status_flags_child, parents);
                     json_array_remove(path_array, json_array_size(path_array) - 1);
                     if (result != JSON_WALK_CONTINUE) {
