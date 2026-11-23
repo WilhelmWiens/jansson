@@ -61,7 +61,7 @@ static json_walk_result_t walk_node(json_t *json, json_t *path_item,
     int is_container = json_is_object(json) || json_is_array(json);
     int skip_children = 0;
 
-    if (parents->size >= JSON_PARSER_MAX_DEPTH)
+    if (parents->size > JSON_PARSER_MAX_DEPTH)
         return JSON_WALK_ERROR;
 
     if (!is_container) {
