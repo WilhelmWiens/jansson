@@ -5,23 +5,9 @@
  * it under the terms of the MIT license. See LICENSE for details.
  */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-
 #include "jansson_private.h"
 
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-
-#include "jansson.h"
-#include "strbuffer.h"
-#include "utf.h"
 
 enum walk_frame_flags {
     WALK_FRAME_NEXT_CHILD_FIRST = 1 << 5,
@@ -46,6 +32,8 @@ static json_walk_result_t json_walk_call(struct walk_context *ctx, json_t *json)
 
 struct walk_frame {
     json_t *json;
+    char loop_key[LOOP_KEY_LEN];
+    size_t loop_key_len;
     union {
         void *object_iter;
         size_t array_index;
@@ -103,14 +91,19 @@ static void json_walk_stack_pop(struct walk_stack *stack, json_t *path_array) {
 json_walk_result_t json_walk_ctx(struct walk_context *ctx, json_t *json) {
     struct walk_stack stack = {NULL, 0, 16};
     struct walk_frame root_frame;
+    hashtable_t parents;
     int result;
 
     if (!json || !ctx || !ctx->callback) {
         return -1;
     }
 
+    if (hashtable_init(&parents) != 0)
+        return -1;
+
     ctx->path_array = json_array();
     if (!ctx->path_array) {
+        hashtable_close(&parents);
         return -1;
     }
 
@@ -119,6 +112,7 @@ json_walk_result_t json_walk_ctx(struct walk_context *ctx, json_t *json) {
     stack.frames = jsonp_malloc(stack.capacity * sizeof(*stack.frames));
     if (!stack.frames) {
         json_decref(ctx->path_array);
+        hashtable_close(&parents);
         return -1;
     }
 
@@ -138,6 +132,27 @@ json_walk_result_t json_walk_ctx(struct walk_context *ctx, json_t *json) {
                 ctx->status_flag = frame->flags & (JSON_WALK_STATUS_FIRST_CHILD |
                                                    JSON_WALK_STATUS_LAST_CHILD);
                 if (type == JSON_OBJECT || type == JSON_ARRAY) {
+                    int loop_status = jsonp_loop_check(&parents, frame->json, frame->loop_key, LOOP_KEY_LEN, &frame->loop_key_len);
+                    if (loop_status < 0) {
+                        result = JSON_WALK_ERROR;
+                        goto done;
+                    }
+                    if (loop_status > 0) {
+                        frame->loop_key_len = 0;
+                        if (!(ctx->flags & JSON_WALK_CIRCULAR_REFERENCE)) {
+                            result = JSON_WALK_ERROR;
+                            goto done;
+                        }
+                        ctx->status_flag |= JSON_WALK_STATUS_CIRCULAR_REFERENCE;
+                        result = json_walk_call(ctx, frame->json);
+                        if (result == JSON_WALK_ERROR || result == JSON_WALK_STOP)
+                            goto done;
+                        if (result == JSON_WALK_BREAK)
+                            result = JSON_WALK_CONTINUE;
+                        frame->state = WALK_FRAME_DONE;
+                        break;
+                    }
+
                     if (ctx->flags & JSON_WALK_CONTAINER_PRE) {
                         ctx->status_flag |= JSON_WALK_STATUS_CONTAINER_PRE;
                         result = json_walk_call(ctx, frame->json);
@@ -234,6 +249,8 @@ json_walk_result_t json_walk_ctx(struct walk_context *ctx, json_t *json) {
                 break;
 
             case WALK_FRAME_DONE:
+                if (frame->loop_key_len > 0)
+                    hashtable_del(&parents, frame->loop_key, frame->loop_key_len);
                 json_walk_stack_pop(&stack, ctx->path_array);
                 break;
         }
@@ -243,6 +260,7 @@ done:
     ctx->status_flag = 0;
     jsonp_free(stack.frames);
     json_decref(ctx->path_array);
+    hashtable_close(&parents);
 
     return result == JSON_WALK_BREAK ? JSON_WALK_CONTINUE : result;
 }

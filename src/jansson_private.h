@@ -93,6 +93,16 @@ char *jsonp_strndup(const char *str, size_t len) JANSSON_ATTRS((warn_unused_resu
 /* Circular reference check*/
 /* Space for "0x", double the sizeof a pointer for the hex and a terminator. */
 #define LOOP_KEY_LEN (2 + (sizeof(json_t *) * 2) + 1)
+/**
+ * jsonp_loop_check - Check for circular references
+ * @parents: The hashtable of parent objects/arrays
+ * @json: The object/array to check
+ * @key: The buffer to write the key into
+ * @key_size: The size of the key buffer
+ * @key_len_out: The length of the key written to the buffer
+ * 
+ * returns 0 if the object/array is not in the hashtable, -1 on error, and 1 if it is.
+ */
 int jsonp_loop_check(hashtable_t *parents, const json_t *json, char *key, size_t key_size,
                      size_t *key_len_out);
 
