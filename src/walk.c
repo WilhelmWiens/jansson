@@ -25,21 +25,18 @@ static json_walk_result_t walk_callback(json_t *json, json_t *path_item,
 
 static json_walk_result_t walk_node(json_t *json, json_t *path_item,
                                     json_walk_callback_t callback, void *data,
-                                    size_t flags, size_t position_status, size_t depth,
-                                    hashtable_t *parents);
+                                    size_t flags, size_t position_status, hashtable_t *parents);
 
 static json_walk_result_t walk_enter(json_t *json, json_t *path_item,
                                      json_walk_callback_t callback, void *data,
-                                     size_t flags, size_t position_status, size_t depth,
-                                     hashtable_t *parents) {
+                                     size_t flags, size_t position_status, hashtable_t *parents) {
     json_walk_result_t result;
     char loop_key[LOOP_KEY_LEN];
     size_t loop_key_len;
     int loop_status;
 
     if (!json_is_object(json) && !json_is_array(json))
-        return walk_node(json, path_item, callback, data, flags, position_status, depth,
-                         parents);
+        return walk_node(json, path_item, callback, data, flags, position_status, parents);
 
     loop_status = jsonp_loop_check(parents, json, loop_key, LOOP_KEY_LEN, &loop_key_len);
     if (loop_status < 0)
@@ -52,21 +49,19 @@ static json_walk_result_t walk_enter(json_t *json, json_t *path_item,
         return result == JSON_WALK_BREAK ? JSON_WALK_CONTINUE : result;
     }
 
-    result = walk_node(json, path_item, callback, data, flags, position_status, depth,
-                       parents);
+    result = walk_node(json, path_item, callback, data, flags, position_status, parents);
     hashtable_del(parents, loop_key, loop_key_len);
     return result;
 }
 
 static json_walk_result_t walk_node(json_t *json, json_t *path_item,
                                     json_walk_callback_t callback, void *data,
-                                    size_t flags, size_t position_status, size_t depth,
-                                    hashtable_t *parents) {
+                                    size_t flags, size_t position_status, hashtable_t *parents) {
     json_walk_result_t result;
     int is_container = json_is_object(json) || json_is_array(json);
     int skip_children = 0;
 
-    if (depth >= JSON_PARSER_MAX_DEPTH)
+    if (parents->size >= JSON_PARSER_MAX_DEPTH)
         return JSON_WALK_ERROR;
 
     if (!is_container) {
@@ -108,7 +103,7 @@ static json_walk_result_t walk_node(json_t *json, json_t *path_item,
                     child_status |= JSON_WALK_STATUS_LAST_CHILD;
 
                 result = walk_enter(json_array_get(json, index), item, callback, data,
-                                    flags, child_status, depth + 1, parents);
+                                    flags, child_status, parents);
                 json_decref(item);
 
                 if (result == JSON_WALK_STOP || result == JSON_WALK_ERROR)
@@ -135,7 +130,7 @@ static json_walk_result_t walk_node(json_t *json, json_t *path_item,
                     child_status |= JSON_WALK_STATUS_LAST_CHILD;
 
                 result = walk_enter(json_object_iter_value(iter), item, callback, data,
-                                    flags, child_status, depth + 1, parents);
+                                    flags, child_status, parents);
                 json_decref(item);
 
                 if (result == JSON_WALK_STOP || result == JSON_WALK_ERROR)
@@ -173,7 +168,7 @@ json_walk_result_t json_walk(json_t *json, json_walk_callback_t callback, void *
     if (hashtable_init(&parents) != 0)
         return JSON_WALK_ERROR;
 
-    result = walk_enter(json, NULL, callback, data, flags, 0, 0, &parents);
+    result = walk_enter(json, NULL, callback, data, flags, 0, &parents);
     hashtable_close(&parents);
 
     /* BREAK ends the current container; at the root, traversal is complete. */
