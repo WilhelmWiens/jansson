@@ -192,6 +192,10 @@ static void test_walk_flags(void) {
 
     if (json_walk_ctx(NULL, root) != -1 || json_walk_ctx(&ctx, NULL) != -1)
         fail("json_walk flags: invalid argument check failed");
+    ctx.flags = (size_t)-1;
+    if (json_walk_ctx(&ctx, root) != -1)
+        fail("json_walk flags: invalid flag check failed");
+    ctx.flags = JSON_WALK_CONTAINER_POST;
     ctx.callback = NULL;
     if (json_walk_ctx(&ctx, root) != -1)
         fail("json_walk flags: missing callback check failed");

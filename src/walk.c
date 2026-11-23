@@ -93,8 +93,11 @@ json_walk_result_t json_walk_ctx(struct walk_context *ctx, json_t *json) {
     struct walk_frame root_frame;
     hashtable_t parents;
     int result;
+    const size_t valid_flags =
+        JSON_WALK_CONTAINER_PRE | JSON_WALK_CONTAINER_POST | JSON_WALK_LEAFS |
+        JSON_WALK_CIRCULAR_REFERENCE;
 
-    if (!json || !ctx || !ctx->callback) {
+    if (!json || !ctx || !ctx->callback || (ctx->flags & ~valid_flags)) {
         return -1;
     }
 
@@ -112,6 +115,8 @@ json_walk_result_t json_walk_ctx(struct walk_context *ctx, json_t *json) {
     stack.frames = jsonp_malloc(stack.capacity * sizeof(*stack.frames));
     if (!stack.frames) {
         json_decref(ctx->path_array);
+        ctx->path_array = NULL;
+        ctx->status_flag = 0;
         hashtable_close(&parents);
         return -1;
     }
@@ -203,6 +208,8 @@ json_walk_result_t json_walk_ctx(struct walk_context *ctx, json_t *json) {
                     path_component = json_stringn_nocheck(
                         key, json_object_iter_key_len(frame->cursor.object_iter));
                 } else {
+                    json_int_t int_index;
+
                     if (frame->cursor.array_index >= json_array_size(frame->json)) {
                         frame->state = (ctx->flags & JSON_WALK_CONTAINER_POST)
                                            ? WALK_FRAME_POST
@@ -212,7 +219,13 @@ json_walk_result_t json_walk_ctx(struct walk_context *ctx, json_t *json) {
                     child = json_array_get(frame->json, frame->cursor.array_index);
                     child_is_last =
                         frame->cursor.array_index + 1 == json_array_size(frame->json);
-                    path_component = json_integer(frame->cursor.array_index);
+                    // Check if the array index can be safely cast to json_int_t
+                    int_index = (json_int_t)frame->cursor.array_index;
+                    if ((size_t)int_index != frame->cursor.array_index) {
+                        result = JSON_WALK_ERROR;
+                        goto done;
+                    }
+                    path_component = json_integer(int_index);
                 }
 
                 if (!path_component) {
@@ -260,6 +273,7 @@ done:
     ctx->status_flag = 0;
     jsonp_free(stack.frames);
     json_decref(ctx->path_array);
+    ctx->path_array = NULL;
     hashtable_close(&parents);
 
     return result == JSON_WALK_BREAK ? JSON_WALK_CONTINUE : result;
